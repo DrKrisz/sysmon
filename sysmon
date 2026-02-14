@@ -1,0 +1,83 @@
+#!/bin/bash
+
+mode=$1
+count=$2
+
+# default values
+if [ -z "$mode" ]; then
+    mode="live"
+fi
+
+if [ -z "$count" ]; then
+    count=5
+fi
+
+if [ "$mode" = "setup" ]; then
+    clear
+    echo "=== SYSTEM SETUP INFO ==="
+    echo
+
+    # CPU info
+    echo "CPU:"
+    lscpu | grep "Model name"
+    lscpu | grep "CPU(s):" | head -n1
+    lscpu | grep "Thread(s) per core"
+    lscpu | grep "Core(s) per socket"
+    echo
+
+    # RAM info
+    echo "RAM:"
+    free -h | grep Mem
+    echo
+
+    # GPU info
+    echo "GPU:"
+    if command -v nvidia-smi &> /dev/null; then
+        nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+    else
+        gpu=$(lspci | grep -i 'vga\|3d\|2d')
+        if [ -n "$gpu" ]; then
+            echo "$gpu"
+        else
+            echo "No GPU detected"
+        fi
+    fi
+    echo
+    exit 0
+fi
+
+if [ "$mode" = "top" ]; then
+    while true; do
+        clear
+        echo "Top $count processes by CPU usage"
+        echo "----------------------------------"
+        ps -eo pid,comm,%cpu,%mem --sort=-%cpu | head -n $((count + 1))
+
+        echo
+        echo "Top $count processes by RAM usage"
+        echo "----------------------------------"
+        ps -eo pid,comm,%cpu,%mem --sort=-%mem | head -n $((count + 1))
+
+        sleep 2
+    done
+else
+    # live system monitor
+    while true; do
+        # CPU usage
+        cpu=$(top -bn1 | grep "Cpu(s)" | awk '{print 100 - $8"%"}')
+
+        # RAM usage
+        ram=$(free | awk '/Mem:/ {printf("%.1f%%"), $3/$2 * 100.0}')
+
+        # GPU usage (NVIDIA only)
+        if command -v nvidia-smi &> /dev/null; then
+            gpu=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits | head -n1)
+            gpu="${gpu}%"
+        else
+            gpu="N/A"
+        fi
+
+        echo -ne "\rCPU: $cpu | RAM: $ram | GPU: $gpu   "
+        sleep 1
+    done
+fi
