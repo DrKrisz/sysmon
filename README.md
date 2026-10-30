@@ -1,65 +1,88 @@
 # sysmon
 
-A lightweight, real-time terminal system monitor for Linux that displays system performance metrics and process information in an easy-to-read format.
+A small Bash utility for inspecting CPU, RAM, NVIDIA GPU usage and busy
+processes from a Linux terminal. It wraps existing system tools rather than
+running a monitoring service or storing historical metrics.
 
-## Features
+## Stack and requirements
 
-* **Live monitoring**: Real-time CPU, RAM, and GPU usage with continuous updates
-* **Top processes**: Identify resource-heavy processes sorted by CPU or RAM consumption
-* **System information**: View detailed system configuration and specifications
+- Bash 4+, Linux, and an interactive terminal.
+- `procps` tools (`top`, `ps`, `free`), `lscpu` (util-linux), and standard
+  `awk`, `grep`, `sed`, `head`, `sleep` and `clear`.
+- Optional: `nvidia-smi` for NVIDIA utilization; `lspci` for fallback GPU identification.
 
-## Installation
-
-Clone the repository and run the installer:
+## Try without installing
 
 ```bash
-git clone https://github.com/drkrisz/sysmon.git
+git clone https://github.com/DrKrisz/sysmon.git
 cd sysmon
+LC_ALL=C bash ./sysmon setup
+bash ./sysmon help
+LC_ALL=C bash ./sysmon
+```
+
+Use **Ctrl+C** to stop either continuous mode.
+
+| Command | Behaviour |
+| --- | --- |
+| `bash ./sysmon` or `bash ./sysmon live` | CPU, RAM and GPU line, roughly once a second |
+| `bash ./sysmon top 5` | Both CPU-sorted and RAM-sorted process lists, every two seconds |
+| `bash ./sysmon setup` | One-time CPU, memory and GPU information |
+| `bash ./sysmon help` | Usage without starting the monitor |
+
+The process count defaults to 5. Non-numeric counts and unknown commands
+produce an error and a nonzero exit status.
+
+## Optional user installation
+
+From the repository directory:
+
+```bash
 bash install.sh
 ```
 
-This will install `sysmon` to your system path, making it available as a command from any terminal.
+The installer copies `sysmon` into `~/.local/bin`, makes that copy executable,
+and appends a PATH entry to `~/.bashrc` if the directory is not already on PATH.
+No administrator access is needed. Open a new Bash terminal afterwards.
+For another shell, configure its PATH yourself.
 
-## Usage
+To uninstall, remove `~/.local/bin/sysmon`. If the installer added a PATH line,
+review it in `~/.bashrc` before removing it; other tools may use that directory.
 
-**Live monitoring** - Display real-time system metrics that update continuously:
+## Structure and development history
+
+- `sysmon`: argument validation, help, `setup`, `top` and `live` branches.
+- `install.sh`: user-local installation.
+- `LICENSE`: MIT license.
+
+DrKrisz's [CLI update](https://github.com/DrKrisz/sysmon/commit/30289966adc9bf67b90663e63f325d46efb36185)
+records input validation, explicit errors, display formatting and GPU fallbacks.
+The script is a compact example for discussing shell pipelines and operational
+tradeoffs.
+
+## Validation
+
+Syntax and CLI smoke checks:
+
 ```bash
-sysmon
+bash -n sysmon
+bash -n install.sh
+bash sysmon help
+bash sysmon top invalid  # expected: count error and exit 1
+bash sysmon unknown      # expected: unknown-command error and exit 1
 ```
 
-**Top processes** - Show the top N processes consuming the most CPU or RAM:
-```bash
-sysmon top 5      # Display top 5 processes
-sysmon top 10     # Display top 10 processes
-```
-By default, processes are sorted by CPU usage. This helps identify resource-hungry applications.
+On a Linux machine, also try `setup`, `live` and `top 5`; check the displayed
+values against the underlying tools. Syntax and argument checks alone do not
+validate Linux metrics or hardware support.
 
-**System information** - View system specifications and configuration details:
-```bash
-sysmon setup
-```
+## Limits
 
-## Requirements
+- Parsing assumes English Linux command output; run with `LC_ALL=C` if necessary.
+- GPU utilization is NVIDIA-only and uses the first returned GPU; unsupported
+  or missing readings appear as `N/A` (some driver failures may show `N/A%`).
+- The CPU sample uses `top` in batch mode; this is a lightweight indication,
+  not a precise long-term measurement. Sampling adds to the refresh interval.
+- No metrics history, alerts, remote endpoint or automated hardware tests.
+- Native Windows and macOS metrics are not supported.
 
-* **OS**: Linux (Ubuntu, Debian, Fedora, or similar distributions)
-* **Shell**: Bash 4.0+
-* **System utilities**: Standard Linux command-line tools (proc filesystem, ps, grep, awk)
-* **GPU monitoring**: NVIDIA GPUs require `nvidia-smi` (installed with NVIDIA drivers)
-
-## Troubleshooting
-
-**Command not found after installation:**
-- Ensure your shell's PATH includes the installation directory
-- Try reopening your terminal or running `source ~/.bashrc`
-
-**Permission denied errors:**
-- Make sure the install script is executable: `chmod +x install.sh`
-- You may need to run `sudo bash install.sh` depending on your system configuration
-
-**GPU usage not showing:**
-- Verify NVIDIA drivers are installed: `nvidia-smi`
-- Only NVIDIA GPUs are currently supported; AMD GPU support may be added in future releases
-
-## License
-
-MIT License
